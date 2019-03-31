@@ -1,0 +1,9 @@
+Question 1:
+
+G = {Σ, V, S, P}
+Σ = { 0, 1 }
+V = { S, E }
+P = {
+    S → 0 | 1 | E ,
+    E → ( E ) | NON E | E OP E
+}
