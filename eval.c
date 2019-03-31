@@ -4,8 +4,7 @@
 enum type
 {
 	CONSTANTE,
-	OP_BINAIRE,
-	OP_UNAIRE,
+	OPERATEUR,
 	PARENTHESE
 };
 
