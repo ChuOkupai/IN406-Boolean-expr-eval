@@ -61,6 +61,25 @@ enum type	get_type(enum valeur v)
 	return (v == GAUCHE || v == DROITE) ? PARENTHESE : OPERATEUR;
 }
 
+liste_token	new_liste_token(enum valeur v)
+{
+	liste_token l = (liste_token)malloc(sizeof(struct token));
+	if (! l)
+		exit_erreur();
+	l->type = get_type(v);
+	l->valeur = v;
+	l->suivant = NULL;
+	return l;
+}
+
+void	destroy_liste_token(liste_token l)
+{
+	if (! l)
+		return;
+	destroy_liste_token(l->suivant);
+	free(l);
+}
+
 /*liste_token	string_to_token(char *string)
 {
 
@@ -74,6 +93,8 @@ arbre_token	new_arbre_token(enum valeur v)
 		exit_erreur();
 	at->type = get_type(v);
 	at->valeur = v;
+	at->gauche = NULL;
+	at->droite = NULL;
 	return at;
 }
 
@@ -86,11 +107,25 @@ void	destroy_arbre_token(arbre_token at)
 	free(at);
 }
 
-/*arbre_token	liste_token_to_arbre_token(liste_token l)
+// NE GERE PAS LES PARENTHESES
+arbre_token	liste_token_to_arbre_token(liste_token l)
 {
-	
-	return 0;
-}*/
+	if (! l)
+		return NULL;
+	arbre_token at = new_arbre_token(l->valeur);
+	if (l->valeur == NON)
+	{
+		at->gauche = liste_token_to_arbre_token(l->suivant);
+		// ???
+		return at;
+	}
+	else if (! l->suivant)
+		return at;
+	arbre_token parent = new_arbre_token(l->suivant->valeur);
+	parent->gauche = at;
+	parent->droite = liste_token_to_arbre_token(l->suivant->suivant);
+	return parent;
+}
 
 int	resoudre(enum valeur a, enum valeur b, enum valeur op)
 {
@@ -110,15 +145,47 @@ int	arbre_to_int(arbre_token at)
 {
 	if (! at)
 		return 0;
-	if (at->type == CONSTANTE)
+	else if (at->type == CONSTANTE)
 		return at->valeur;
 	return resoudre(arbre_to_int(at->gauche), arbre_to_int(at->droite), at->valeur);
 }
 
-int	main(int argc, char **argv)
+void	infixe(arbre_token at)
 {
-	if (argc < 2)
-		exit_invalide();
+	if (! at)
+		return;
+	infixe(at->gauche);
+	char *buf;
+	if (at->valeur == FAUX)
+		buf = "0";
+	else if (at->valeur == VRAI)
+		buf = "1";
+	else if (at->valeur == NON)
+		buf = "NON";
+	else if (at->valeur == OU)
+		buf = "+";
+	else if (at->valeur == ET)
+		buf = ".";
+	else if (at->valeur == IMPLICATION)
+		buf = "=>";
+	else if (at->valeur == EQUIVALENCE)
+		buf = "<=>";
+	printf("%s", buf);
+	infixe(at->droite);
+}
+
+void	test_expression(arbre_token at)
+{
+	printf("expression = \"");
+	infixe(at);
+	printf("\"\n");
+	printf((arbre_to_int(at)) ? "VRAI" : "FAUX");
+	putchar('\n');
+}
+
+// (1=>(NON(1+0).1))
+void	test1()
+{
 	arbre_token at = new_arbre_token(IMPLICATION);
 	at->gauche = new_arbre_token(VRAI);
 	at->droite = new_arbre_token(ET);
@@ -127,9 +194,29 @@ int	main(int argc, char **argv)
 	at->droite->gauche->gauche = new_arbre_token(OU);
 	at->droite->gauche->gauche->gauche = new_arbre_token(VRAI);
 	at->droite->gauche->gauche->droite = new_arbre_token(FAUX);
-	printf((arbre_to_int(at)) ? "VRAI" : "FAUX");
-	putchar('\n');
+	test_expression(at);
 	destroy_arbre_token(at);
+}
+
+// 1.0+1
+void	test2()
+{
+	liste_token l = new_liste_token(VRAI);
+	l->suivant = new_liste_token(ET);
+	l->suivant->suivant = new_liste_token(FAUX);
+	l->suivant->suivant->suivant = new_liste_token(OU);
+	l->suivant->suivant->suivant->suivant = new_liste_token(VRAI);
+	arbre_token at = liste_token_to_arbre_token(l);
+	test_expression(at);
+	destroy_liste_token(l);
+	destroy_arbre_token(at);
+}
+
+int	main(int argc, char **argv)
+{
+	if (argc < 2)
+		exit_invalide();
 	(void)argv;
+	test2();
 	return 0;
 }
