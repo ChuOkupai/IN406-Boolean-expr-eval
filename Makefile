@@ -1,7 +1,10 @@
 NOMS=DANKOU_Mathis-SOURSOU_Adrien
 
 test: clean eval
-	./eval BLABLA
+	./eval "1=>NON0"
+	./eval "(1.0)+1"
+	./eval "NON(0)+0"
+	./eval "(1=>(NON(1+0).1))"
 
 clean:
 	rm -f eval

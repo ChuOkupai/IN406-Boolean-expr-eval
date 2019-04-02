@@ -5,7 +5,7 @@
 #define exit_erreur() { perror("erreur"); exit(EXIT_FAILURE); }
 
 // Affiche une erreur en cas d'expression incorrecte
-#define exit_invalide() { fprintf(stderr, "erreur: expression incorrecte\n"); exit(EXIT_FAILURE); }
+#define exit_invalide() { fprintf(stderr, "expression incorrecte\n"); exit(EXIT_FAILURE); }
 
 enum type
 {
@@ -120,33 +120,57 @@ void	destroy_arbre_token(arbre_token at)
 	free(at);
 }
 
-// NE GERE PAS LES PARENTHESES
 arbre_token	liste_token_to_arbre_token(liste_token l)
 {
 	if (! l)
 		return NULL;
-	arbre_token at = new_arbre_token(l->valeur);
-	if (! l->suivant)
-		return at;
-	arbre_token parent = new_arbre_token(l->suivant->valeur);
-	if (l->valeur == NON) // Cas particulier: opérateur avant constante
+	arbre_token at2 = NULL;
+	
+	if (l->valeur == GAUCHE)
 	{
-		at->gauche = parent; // le parent est le fils
-		if (! l->suivant->suivant) // si il n'y a pas d'opérateur à la suite
-			parent = at;
-		else
+		while ((l = l->suivant)->valeur == GAUCHE);
+		at2 = liste_token_to_arbre_token(l);
+		while ((l = l->suivant)->valeur != DROITE);
+		while ((l = l->suivant) && l->valeur == DROITE);
+		if (! l) // fin de l'expression
+			return at2;
+	}
+	arbre_token at = new_arbre_token(l->valeur);
+	l = l->suivant;
+	if (at->type == CONSTANTE)
+	{
+		if (! l || l->valeur == DROITE) // fin de l'expression
+			return at;
+		if (l->type == OPERATEUR) // Opérateur après constante
 		{
-			parent = new_arbre_token(l->suivant->suivant->valeur);
+			arbre_token parent = liste_token_to_arbre_token(l);
 			parent->gauche = at;
-			parent->droite = liste_token_to_arbre_token(l->suivant->suivant->suivant);
+			at = parent;
 		}
 	}
-	else // parent est un opérateur binaire
+	else if (at->type == OPERATEUR)
 	{
-		parent->gauche = at;
-		parent->droite = liste_token_to_arbre_token(l->suivant->suivant);
+		if (at->valeur == NON) // Cas particulier: opérateur avant constante
+		{
+			if (l->type == CONSTANTE)
+				at->gauche = liste_token_to_arbre_token(l);
+			else if (l->type == PARENTHESE)
+			{
+				while ((l = l->suivant)->valeur == GAUCHE);
+				at->gauche = liste_token_to_arbre_token(l);
+				while ((l = l->suivant)->valeur != DROITE);
+				while ((l = l->suivant) && l->valeur == DROITE);
+			}
+			else
+				exit_invalide();
+		}
+		else
+		{
+			at->gauche = at2;
+			at->droite = liste_token_to_arbre_token(l);
+		}
 	}
-	return parent;
+	return at;
 }
 
 // Résolution de a op b
@@ -160,7 +184,7 @@ int	resoudre(enum valeur a, enum valeur b, enum valeur op)
 		return a & b;
 	if (op == IMPLICATION)
 		return (a ^ 1) | b;
-	// op == EQUIVALENCE
+	// else (op == EQUIVALENCE)
 	return ((a ^ 1) | b) & ((b ^ 1) | a);
 }
 
@@ -174,6 +198,28 @@ int	arbre_to_int(arbre_token at)
 	return resoudre(arbre_to_int(at->gauche), arbre_to_int(at->droite), at->valeur);
 }
 
+const char*	getString(enum valeur v)
+{
+	if (v == FAUX)
+		return "0";
+	else if (v == VRAI)
+		return "1";
+	else if (v == NON)
+		return "NON";
+	else if (v == OU)
+		return "+";
+	else if (v == ET)
+		return ".";
+	else if (v == IMPLICATION)
+		return "=>";
+	else if (v == EQUIVALENCE)
+		return "<=>";
+	else if (v == GAUCHE)
+		return "(";
+	//else (v == DROITE)
+	return ")";
+}
+
 // Parcours prefixe (debug)
 void	prefixe(arbre_token at, unsigned int p)
 {
@@ -181,81 +227,70 @@ void	prefixe(arbre_token at, unsigned int p)
 		return;
 	for (unsigned int i = 0; i < p; i++)
 		printf("  ");
-	char *buf;
-	if (at->valeur == FAUX)
-		buf = "0";
-	else if (at->valeur == VRAI)
-		buf = "1";
-	else if (at->valeur == NON)
-		buf = "NON";
-	else if (at->valeur == OU)
-		buf = "+";
-	else if (at->valeur == ET)
-		buf = ".";
-	else if (at->valeur == IMPLICATION)
-		buf = "=>";
-	else if (at->valeur == EQUIVALENCE)
-		buf = "<=>";
-	printf("%s\n", buf);
+	printf("%s\n", getString(at->valeur));
 	prefixe(at->gauche, ++p);
 	prefixe(at->droite, p);
 }
 
-// Test d'une expression booléenne (debug)
-void	test_expression(arbre_token at)
+// Transforme une chaîne de charactères en liste de token (debug)
+liste_token	string_to_token_dumb(const char *s)
 {
+	liste_token l = NULL;
+	enum valeur v;
+	while (*s)
+	{
+		if (*s == '0')		v = FAUX;
+		else if (*s == '1')	v = VRAI;
+		else if (*s == '+')	v = OU;
+		else if (*s == '.')	v = ET;
+		else if (*s == '(')	v = GAUCHE;
+		else if (*s == ')')	v = DROITE;
+		else if (s[0] == '=' && s[1] && s[1] == '>')
+		{
+			v = IMPLICATION;
+			s++;
+		}
+		else if (s[0] == '<' && s[1] && s[1] == '=' && s[2] && s[2] == '>')
+		{
+			v = EQUIVALENCE;
+			s += 2;
+		}
+		else if (s[0] == 'N' && s[1] && s[1] == 'O' && s[2] && s[2] == 'N')
+		{
+			v = NON;
+			s += 2;
+		}
+		else if (*s == ' ')
+		{
+			s++;
+			continue;
+		}
+		else
+			exit_invalide();
+		l = insert_liste_token(l, v);
+		s++;
+	}
+	return l;
+}
+
+// Test d'une expression booléenne (debug)
+void	test_expression(const char *s)
+{
+	if (! s)
+		return;
+	liste_token l = string_to_token_dumb(s);
+	arbre_token at = liste_token_to_arbre_token(l);
 	prefixe(at, 0);
 	printf((arbre_to_int(at)) ? "VRAI" : "FAUX");
 	putchar('\n');
-}
-
-void	test1()
-{
-	arbre_token at = new_arbre_token(IMPLICATION);
-	at->gauche = new_arbre_token(VRAI);
-	at->droite = new_arbre_token(ET);
-	at->droite->gauche = new_arbre_token(NON);
-	at->droite->droite = new_arbre_token(VRAI);
-	at->droite->gauche->gauche = new_arbre_token(OU);
-	at->droite->gauche->gauche->gauche = new_arbre_token(VRAI);
-	at->droite->gauche->gauche->droite = new_arbre_token(FAUX);
-	puts("(1=>(NON(1+0).1))");
-	test_expression(at);
 	destroy_arbre_token(at);
-}
-
-void	test2()
-{
-	liste_token l = new_liste_token(VRAI);
-	l = insert_liste_token(l, ET);
-	l = insert_liste_token(l, FAUX);
-	l = insert_liste_token(l, OU);
-	l = insert_liste_token(l, VRAI);
-	arbre_token at = liste_token_to_arbre_token(l);
-	puts("1.0+1");
-	test_expression(at);
 	destroy_liste_token(l);
-	destroy_arbre_token(at);
-}
-
-void	test3()
-{
-	liste_token l = new_liste_token(NON);
-	l = insert_liste_token(l, VRAI);
-	l = insert_liste_token(l, OU);
-	l = insert_liste_token(l, VRAI);
-	arbre_token at = liste_token_to_arbre_token(l);
-	puts("NON1+1");
-	test_expression(at);
-	destroy_liste_token(l);
-	destroy_arbre_token(at);
 }
 
 int	main(int argc, char **argv)
 {
 	if (argc < 2)
 		exit_invalide();
-	(void)argv;
-	test3();
+	test_expression(argv[1]);
 	return 0;
 }
