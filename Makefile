@@ -1,11 +1,7 @@
 NOMS=DANKOU_Mathis-SOURSOU_Adrien
 
 test: clean eval
-	./eval
-	#./eval
-	#./eval
-	#./eval
-	#./eval
+	./eval BLABLA
 
 clean:
 	rm -f eval
