@@ -70,18 +70,6 @@ liste_token	new_liste_token(enum valeur v)
 	return l;
 }
 
-// Insertion d'un token dans une liste de tokens
-liste_token	insert_liste_token(liste_token l, enum valeur v)
-{
-	if (! l)
-		return new_liste_token(v);
-	liste_token l2 = l;
-	while (l->suivant)
-		l = l->suivant;
-	l->suivant = new_liste_token(v);
-	return l2;
-}
-
 // Libère la liste de tokens en mémoire
 void	destroy_liste_token(liste_token l)
 {
@@ -91,11 +79,55 @@ void	destroy_liste_token(liste_token l)
 	free(l);
 }
 
-/*liste_token	string_to_token(char *string)
+// Transforme une chaîne de charactères en liste de token
+liste_token	string_to_token(const char *s)
 {
-
-	return 0;
-}*/
+	liste_token l = NULL, c = NULL;
+	enum valeur v;
+	while (*s)
+	{
+		if (*s == '0')		v = FAUX;
+		else if (*s == '1')	v = VRAI;
+		else if (*s == '+')	v = OU;
+		else if (*s == '.')	v = ET;
+		else if (*s == '(')	v = GAUCHE;
+		else if (*s == ')')	v = DROITE;
+		else if (s[0] == '=' && s[1] && s[1] == '>')
+		{
+			v = IMPLICATION;
+			s++;
+		}
+		else if (s[0] == '<' && s[1] && s[1] == '=' && s[2] && s[2] == '>')
+		{
+			v = EQUIVALENCE;
+			s += 2;
+		}
+		else if (s[0] == 'N' && s[1] && s[1] == 'O' && s[2] && s[2] == 'N')
+		{
+			v = NON;
+			s += 2;
+		}
+		else if (*s == ' ')
+		{
+			s++;
+			continue;
+		}
+		else
+			exit_invalide();
+		if (! l)
+		{
+			l = new_liste_token(v);
+			c = l;
+		}
+		else
+		{
+			c->suivant = new_liste_token(v);
+			c = c->suivant;
+		}
+		s++;
+	}
+	return l;
+}
 
 // Alloue la mémoire à un token dans l'arbre
 arbre_token	new_arbre_token(enum valeur v)
@@ -124,53 +156,7 @@ arbre_token	liste_token_to_arbre_token(liste_token l)
 {
 	if (! l)
 		return NULL;
-	arbre_token at2 = NULL;
-	
-	if (l->valeur == GAUCHE)
-	{
-		while ((l = l->suivant)->valeur == GAUCHE);
-		at2 = liste_token_to_arbre_token(l);
-		while ((l = l->suivant)->valeur != DROITE);
-		while ((l = l->suivant) && l->valeur == DROITE);
-		if (! l) // fin de l'expression
-			return at2;
-	}
-	arbre_token at = new_arbre_token(l->valeur);
-	l = l->suivant;
-	if (at->type == CONSTANTE)
-	{
-		if (! l || l->valeur == DROITE) // fin de l'expression
-			return at;
-		if (l->type == OPERATEUR) // Opérateur après constante
-		{
-			arbre_token parent = liste_token_to_arbre_token(l);
-			parent->gauche = at;
-			at = parent;
-		}
-	}
-	else if (at->type == OPERATEUR)
-	{
-		if (at->valeur == NON) // Cas particulier: opérateur avant constante
-		{
-			if (l->type == CONSTANTE)
-				at->gauche = liste_token_to_arbre_token(l);
-			else if (l->type == PARENTHESE)
-			{
-				while ((l = l->suivant)->valeur == GAUCHE);
-				at->gauche = liste_token_to_arbre_token(l);
-				while ((l = l->suivant)->valeur != DROITE);
-				while ((l = l->suivant) && l->valeur == DROITE);
-			}
-			else
-				exit_invalide();
-		}
-		else
-		{
-			at->gauche = at2;
-			at->droite = liste_token_to_arbre_token(l);
-		}
-	}
-	return at;
+	return NULL;
 }
 
 // Résolution de a op b
@@ -232,53 +218,12 @@ void	prefixe(arbre_token at, unsigned int p)
 	prefixe(at->droite, p);
 }
 
-// Transforme une chaîne de charactères en liste de token (debug)
-liste_token	string_to_token_dumb(const char *s)
-{
-	liste_token l = NULL;
-	enum valeur v;
-	while (*s)
-	{
-		if (*s == '0')		v = FAUX;
-		else if (*s == '1')	v = VRAI;
-		else if (*s == '+')	v = OU;
-		else if (*s == '.')	v = ET;
-		else if (*s == '(')	v = GAUCHE;
-		else if (*s == ')')	v = DROITE;
-		else if (s[0] == '=' && s[1] && s[1] == '>')
-		{
-			v = IMPLICATION;
-			s++;
-		}
-		else if (s[0] == '<' && s[1] && s[1] == '=' && s[2] && s[2] == '>')
-		{
-			v = EQUIVALENCE;
-			s += 2;
-		}
-		else if (s[0] == 'N' && s[1] && s[1] == 'O' && s[2] && s[2] == 'N')
-		{
-			v = NON;
-			s += 2;
-		}
-		else if (*s == ' ')
-		{
-			s++;
-			continue;
-		}
-		else
-			exit_invalide();
-		l = insert_liste_token(l, v);
-		s++;
-	}
-	return l;
-}
-
 // Test d'une expression booléenne (debug)
 void	test_expression(const char *s)
 {
 	if (! s)
 		return;
-	liste_token l = string_to_token_dumb(s);
+	liste_token l = string_to_token(s);
 	arbre_token at = liste_token_to_arbre_token(l);
 	prefixe(at, 0);
 	printf((arbre_to_int(at)) ? "VRAI" : "FAUX");

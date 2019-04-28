@@ -1,6 +1,6 @@
 NOMS=DANKOU_Mathis-SOURSOU_Adrien
 
-test: clean eval
+run: clean eval
 	./eval "1=>NON0"
 	./eval "(1.0)+1"
 	./eval "NON(0)+0"
