@@ -51,6 +51,64 @@ struct arbre
 	arbre_token	droite;
 };
 
+/// PARTIE DEBUG
+
+// REMINDER: fonctions à supprimer AVANT le rendu
+
+// Conversion d'un token en chaîne de charactères
+const char*	toString(enum valeur v)
+{
+	if (v == FAUX)
+		return "0";
+	else if (v == VRAI)
+		return "1";
+	else if (v == NON)
+		return "NON";
+	else if (v == OU)
+		return "+";
+	else if (v == ET)
+		return ".";
+	else if (v == IMPLICATION)
+		return "=>";
+	else if (v == EQUIVALENCE)
+		return "<=>";
+	else if (v == GAUCHE)
+		return "(";
+	//else (v == DROITE)
+	return ")";
+}
+
+// Affiche la liste
+void printList(liste_token l, char *name)
+{
+	printf("%s = ", name);
+	if (! l)
+	{
+		puts("null");
+		return;
+	}
+	while(l)
+	{
+		printf("%s", toString(l->valeur));
+		l = l->suivant;
+	}
+	putchar('\n');
+}
+
+// Parcours prefixe
+void	prefixe(arbre_token at, unsigned int p)
+{
+	if (! at)
+		return;
+	for (unsigned int i = 0; i < p; i++)
+		printf("  ");
+	printf("%s\n", toString(at->valeur));
+	prefixe(at->gauche, ++p);
+	prefixe(at->droite, p);
+}
+
+/// FIN PARTIE DEBUG
+
 // Alloue la mémoire à un token dans la liste
 liste_token	new_liste_token(enum type t, enum valeur v)
 {
@@ -91,46 +149,6 @@ void	destroy_arbre_token(arbre_token at)
 	destroy_arbre_token(at->gauche);
 	destroy_arbre_token(at->droite);
 	free(at);
-}
-
-// Conversion d'un token en chaîne de charactères (DEBUG)
-const char*	toString(enum valeur v)
-{
-	if (v == FAUX)
-		return "0";
-	else if (v == VRAI)
-		return "1";
-	else if (v == NON)
-		return "NON";
-	else if (v == OU)
-		return "+";
-	else if (v == ET)
-		return ".";
-	else if (v == IMPLICATION)
-		return "=>";
-	else if (v == EQUIVALENCE)
-		return "<=>";
-	else if (v == GAUCHE)
-		return "(";
-	//else (v == DROITE)
-	return ")";
-}
-
-// Affiche la liste (DEBUG)
-void printList(liste_token l, char *name)
-{
-	printf("%s = ", name);
-	if (! l)
-	{
-		puts("null");
-		return;
-	}
-	while(l)
-	{
-		printf("%s", toString(l->valeur));
-		l = l->suivant;
-	}
-	putchar('\n');
 }
 
 // Transforme une chaîne de charactères en liste de token
@@ -174,24 +192,40 @@ liste_token	string_to_token(const char *s)
 		else ENQUEUE(c, t, v);
 		s++;
 	}
-	if (! l) EXIT_INVALIDE(); // expression vide
 	return l;
 }
 
 // Vérifie si l'expression est valide
 int	est_valide(liste_token l)
 {
-	// expr=non*c(ε+op expr)
-	while (l && l->valeur == NON)
+	int q = 0, p = 0;
+	
+	while (l)
+	{
+		if (q) // état final
+		{
+			if (l->valeur == DROITE)
+				p--;
+			else
+			{
+				q = 0;
+				if (l->type != OPERATEUR || l->valeur == NON)
+					break;
+			}
+		}
+		else // état initial
+		{
+			if (l->type == CONSTANTE)
+				q = 1;
+			else if (l->valeur == GAUCHE)
+				p++;
+			else if (l->valeur != NON)
+				break;
+		}
 		l = l->suivant;
-	if (! l || l->type == OPERATEUR || l->type == PARENTHESE)
-		return 0;
-	l = l->suivant;
-	if (! l)
-		return 1;
-	else if (l->type == CONSTANTE || l->valeur == NON)
-		return 0;
-	return est_valide(l->suivant);
+	}
+	// vrai si état final et pas de parenthèses restantes dans la pile
+	return q && ! p;
 }
 
 // Transforme une liste de tokens en arbre
@@ -278,18 +312,6 @@ int	arbre_to_int(arbre_token at)
 	else if (at->type == CONSTANTE)
 		return at->valeur;
 	return resoudre(arbre_to_int(at->gauche), arbre_to_int(at->droite), at->valeur);
-}
-
-// Parcours prefixe (DEBUG)
-void	prefixe(arbre_token at, unsigned int p)
-{
-	if (! at)
-		return;
-	for (unsigned int i = 0; i < p; i++)
-		printf("  ");
-	printf("%s\n", toString(at->valeur));
-	prefixe(at->gauche, ++p);
-	prefixe(at->droite, p);
 }
 
 int	main(int argc, char **argv)
