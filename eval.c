@@ -1,11 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-// Affiche une erreur en cas d'expression incorrecte
-#define EXIT_INVALIDE() { puts("expression incorrecte"); exit(EXIT_FAILURE); }
-
-// Ajoute un token à la file et déplace le pointeur à la fin
-#define ENQUEUE(QUEUE, TYPE, VALEUR) ({ QUEUE->suivant = new_liste_token(TYPE, VALEUR); QUEUE = QUEUE->suivant; })
+// Affiche une erreur en cas d'expression incorrecte et retourne la valeur
+#define RETURN_INVALIDE(VALUE) ({ puts("expression incorrecte"); return VALUE; })
 
 enum type
 {
@@ -14,20 +11,23 @@ enum type
 	PARENTHESE
 };
 
+// PRIORITE : NON -> ET -> OU -> (=>, <=>)
+// 1+1.0 <=> 1+(1.0)
+
 enum valeur
 {
 	// Constantes
 	FAUX = 0,
 	VRAI = 1,
 	
-	// Opérateur unaire
-	NON,
-	
 	// Opérateurs binaires
-	OU,
-	ET,
 	IMPLICATION,
 	EQUIVALENCE,
+	OU,
+	ET,
+	
+	// Opérateur unaire
+	NON,
 	
 	// Paranthèses (priorités)
 	GAUCHE,
@@ -113,7 +113,8 @@ void	prefixe(arbre_token at, unsigned int p)
 liste_token	new_liste_token(enum type t, enum valeur v)
 {
 	liste_token l = (liste_token)malloc(sizeof(struct token));
-	if (! l) exit(EXIT_FAILURE);
+	if (! l)
+		exit(EXIT_FAILURE); // erreur malloc
 	l->type = t;
 	l->valeur = v;
 	l->suivant = NULL;
@@ -123,17 +124,21 @@ liste_token	new_liste_token(enum type t, enum valeur v)
 // Libère la liste de tokens en mémoire
 void	destroy_liste_token(liste_token l)
 {
-	if (! l)
-		return;
-	destroy_liste_token(l->suivant);
-	free(l);
+	liste_token s;
+	while (l)
+	{
+		s = l->suivant;
+		free(l);
+		l = s;
+	}
 }
 
 // Alloue la mémoire à un token dans l'arbre
 arbre_token	new_arbre_token(liste_token l)
 {
 	arbre_token at = (arbre_token)malloc(sizeof(struct arbre));
-	if (! at) exit(EXIT_FAILURE);
+	if (! at)
+		exit(EXIT_FAILURE); // erreur malloc
 	at->type = l->type;
 	at->valeur = l->valeur;
 	at->gauche = NULL;
@@ -181,15 +186,24 @@ liste_token	string_to_token(const char *s)
 				v = NON;
 				s++;
 			}
-			else EXIT_INVALIDE(); // non reconnu
+			else
+			{
+				destroy_liste_token(l); // non reconnu
+				l = NULL;
+				break;
+			}
 			s++;
 		}
-		if (! l)
+		if (l)
+		{
+			c->suivant = new_liste_token(t, v);
+			c = c->suivant;
+		}
+		else
 		{
 			l = new_liste_token(t, v);
 			c = l; // pointeur sur l'élément actuel
 		}
-		else ENQUEUE(c, t, v);
 		s++;
 	}
 	return l;
@@ -228,65 +242,152 @@ int	est_valide(liste_token l)
 	return q && ! p;
 }
 
+// Transforme une liste de tokens de infixe à postfixe
+liste_token	liste_token_to_postfix(liste_token l)
+{
+	if (! l)
+		return NULL;
+	liste_token c, exp = NULL, cexp = NULL, op = new_liste_token(PARENTHESE, GAUCHE), p;
+	
+	while (l)
+	{
+		p = l->suivant;
+		if (l->type == CONSTANTE)
+		{
+			// Ajout à l'expression
+			if (exp)
+			{
+				cexp->suivant = l;
+				cexp = cexp->suivant;
+			}
+			else
+			{
+				exp = l;
+				cexp = l;
+				exp->suivant = NULL;
+			}
+		}
+		else if (l->type == OPERATEUR)
+		{
+			// Gestion de la priorité
+			while (op->type == OPERATEUR && op->valeur >= l->valeur)
+			{
+				cexp->suivant = op;
+				cexp = cexp->suivant;
+				op = op->suivant;
+			}
+			c = op;
+			op = l;
+			op->suivant = c;
+		}
+		else // (l->type == PARENTHESE)
+		{
+			if (l->valeur == GAUCHE)
+			{
+				// Ajout à la pile
+				c = op;
+				op = l;
+				op->suivant = c;
+			}
+			else // (l->valeur == DROITE)
+			{
+				while (op->valeur != GAUCHE)
+				{
+					cexp->suivant = op;
+					cexp = cexp->suivant;
+					op = op->suivant;
+				}
+				c = op->suivant;
+				free(op);
+				free(l);
+				op = c;
+			}
+		}
+		l = p;
+	}
+	while (op->valeur != GAUCHE)
+	{
+		cexp->suivant = op;
+		cexp = cexp->suivant;
+		op = op->suivant;
+	}
+	cexp->suivant = NULL;
+	printList(l, "l");
+	printList(op, "op");
+	printList(exp, "exp");
+	free(op);
+	return exp;
+}
+
 // Transforme une liste de tokens en arbre
 arbre_token	liste_token_to_arbre_token(liste_token l)
 {
 	if (! l)
 		return NULL;
-	liste_token c = NULL, o = NULL, p;
-	
+	liste_token g = l, m = NULL, d = l;
+	int p = 0; // pour compter les parenthèses
+	printList(l, "exp");
 	while (l)
 	{
-		p = l;
+		if (l->type == PARENTHESE)
+		{
+			if (l->valeur == GAUCHE)
+				p++;
+			else if (l->valeur == DROITE)
+			{
+				p--;
+				if (p < 0)
+				{
+					d->suivant = l->suivant;
+					free(l);
+					l = d;
+				}
+			}
+		}
+		else if (! p && l->type == OPERATEUR)
+		{
+			if (! m)
+				m = d;
+			else if (m->valeur > l->valeur)
+				m = l;
+		}
+		d = l;
 		l = l->suivant;
-		if (p->type == CONSTANTE)
-		{
-			p->suivant = c;
-			c = p;
-		}
-		else if (p->type == OPERATEUR || p->valeur == GAUCHE)
-		{
-			p->suivant = o;
-			o = p;
-		}
-		else // (p->valeur == DROITE)
-			free(p);
 	}
-	while (c || o)
+	if (! l || p < 0)
 	{
-		printList(c, "c");
-		printList(o, "o");
-		printList(l, "l");
-		if (! o) // une constante restante
+		if (g->type == PARENTHESE)
 		{
-			p = l;
-			l = c;
-			c = c->suivant;
-			l->suivant = p;
+			l = g->suivant;
+			free(g);
+			return liste_token_to_arbre_token(l);
 		}
-		else if (o->valeur == GAUCHE)
+		else if (g->valeur == NON)
 		{
-			p = o->suivant;
-			free(o);
-			o = p;
+			l = g;
+			g = g->suivant;
+			d = NULL;
 		}
 		else
 		{
-			p = l;
-			l = o;
-			o = o->suivant;
-			l->suivant = p;
-			p = l;
-			l = c;
-			c = c->suivant;
-			l->suivant = p;
+			arbre_token at = new_arbre_token(g);
+			destroy_liste_token(g);
+			return at;
 		}
 	}
-	printList(c, "c");
-	printList(o, "o");
-	printList(l, "l");
-	destroy_liste_token(l);
-	return NULL;
+	else
+	{
+		d->suivant = NULL;
+		d = l->suivant;
+	}
+	/*if (g) printList(g, "g");
+	if (l) printList(l, "l");
+	if (d) printList(d, "d");*/
+	arbre_token a = new_arbre_token(l);
+	a->gauche = liste_token_to_arbre_token(g);
+	a->droite = liste_token_to_arbre_token(d);
+	free(l);
+	return a;
 }
 
 // Résolution de a op b
@@ -317,16 +418,21 @@ int	arbre_to_int(arbre_token at)
 int	main(int argc, char **argv)
 {
 	if (argc != 2)
-		EXIT_INVALIDE();
+		RETURN_INVALIDE(-1);
 	liste_token l = string_to_token(argv[1]);
 	
-	int v = est_valide(l);
-	puts((v) ? "VRAI" : "FAUX");
-	//if (! v) EXIT_INVALIDE();
-	
+	if (! est_valide(l))
+	{
+		destroy_liste_token(l);
+		RETURN_INVALIDE(-2);
+		return -2;
+	}
+	l = liste_token_to_postfix(l);
 	/*arbre_token a = liste_token_to_arbre_token(l);
+	puts("tree:");
 	prefixe(a, 0);
 	puts((arbre_to_int(a)) ? "VRAI" : "FAUX");
 	destroy_arbre_token(a);*/
+	destroy_liste_token(l);
 	return 0;
 }
