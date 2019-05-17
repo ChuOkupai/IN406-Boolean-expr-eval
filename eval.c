@@ -7,17 +7,14 @@
 // Si DEBUG est différent de 0, affiche plus d'informations à l'écran
 #define DEBUG 1
 
-enum type
+typedef enum
 {
 	CONSTANTE,
 	OPERATEUR,
 	PARENTHESE
-};
+}	e_type;
 
-// PRIORITE : NON -> ET -> OU -> (=>, <=>)
-// 1+1.0 <=> 1+(1.0)
-
-enum valeur
+typedef enum
 {
 	// Constantes
 	FAUX = 0,
@@ -35,21 +32,21 @@ enum valeur
 	// Paranthèses (priorités)
 	GAUCHE,
 	DROITE
-};
+}	e_valeur;
 
 typedef struct token* liste_token;
 struct token
 {
-	enum type	type;
-	enum valeur	valeur;
+	e_type	type;
+	e_valeur	valeur;
 	liste_token	suivant;
 };
 
 typedef struct arbre* arbre_token;
 struct arbre
 {
-	enum type	type;
-	enum valeur	valeur;
+	e_type	type;
+	e_valeur	valeur;
 	arbre_token	gauche;
 	arbre_token	droite;
 };
@@ -59,7 +56,7 @@ struct arbre
 // REMINDER: fonctions à supprimer AVANT le rendu
 
 // Conversion d'un token en chaîne de charactères
-const char*	toString(enum valeur v)
+const char*	toString(e_valeur v)
 {
 	if (v == FAUX)
 		return "0";
@@ -82,7 +79,7 @@ const char*	toString(enum valeur v)
 }
 
 // Affiche la liste
-void printList(liste_token l, char *name)
+void print_liste_token(liste_token l, char *name)
 {
 	printf("%s: ", name);
 	if (! l)
@@ -115,7 +112,7 @@ void	prefixe(arbre_token at, int p)
 /// FIN PARTIE DEBUG
 
 // Alloue la mémoire à un token dans la liste
-liste_token	new_liste_token(enum type t, enum valeur v)
+liste_token	new_liste_token(e_type t, e_valeur v)
 {
 	liste_token l = (liste_token)malloc(sizeof(struct token));
 	if (! l)
@@ -164,9 +161,9 @@ void	destroy_arbre_token(arbre_token at)
 // Transforme une chaîne de charactères en liste de token
 liste_token	string_to_token(const char *s)
 {
-	liste_token l = NULL, c = NULL;
-	enum type t;
-	enum valeur v;
+	liste_token l = NULL, c;
+	e_type t;
+	e_valeur v;
 	while (*s)
 	{
 		t = OPERATEUR;
@@ -212,7 +209,7 @@ liste_token	string_to_token(const char *s)
 		s++;
 	}
 	#if DEBUG
-		printList(l, "liste de tokens");
+		print_liste_token(l, "liste de tokens");
 	#endif
 	return l;
 }
@@ -323,65 +320,69 @@ liste_token	liste_token_to_postfix(liste_token l)
 	cexp->suivant = NULL;
 	free(op);
 	#if DEBUG
-		printList(exp, "expression postfixe");
+		print_liste_token(exp, "expression postfixe");
 	#endif
 	return exp;
+}
+
+// Calcule la taille maximum de la pile d'arbres à partir de l'expression postfixe
+int	stack_max_size(liste_token l)
+{
+	int s = 0, max = 0;
+	while (l)
+	{
+		if (l->type == CONSTANTE)
+		{
+			s++;
+			if (s > max)
+				max = s;
+		}
+		else if (l->valeur != NON)
+			s--;
+		l = l->suivant;
+	}
+	return max;
 }
 
 // Transforme une liste de tokens en arbre
 arbre_token	liste_token_to_arbre_token(liste_token l)
 {
-	liste_token p, parenthese;
-	arbre_token a = NULL, t, g;
-	
 	l = liste_token_to_postfix(l); // conversion pour simplifier la construction
-	parenthese = new_liste_token(PARENTHESE, GAUCHE);
+	arbre_token t[stack_max_size(l)], a;
+	int i = -1;
+	
+	t[0] = NULL;
 	while (l)
 	{
-		t = new_arbre_token(l);
-		p = l->suivant;
-		free(l);
-		l = p;
-		if (t->type == CONSTANTE)
-		{
-			// on ajoute la constante à la pile d'arbres
-			g = a;
-			a = new_arbre_token(parenthese);
-			a->gauche = g;
-			a->droite = t;
-		}
+		a = new_arbre_token(l);
+		if (a->type == CONSTANTE) // on ajoute la constante à la pile d'arbres
+			t[++i] = a;
 		else // (t->type == OPERATEUR)
 		{
 			// on fusionne 2 arbres avec l'opérateur, puis on le remet dans la pile
-			if (t->valeur == NON)
+			if (a->valeur == NON)
 			{
-				t->gauche = a->droite;
-				a->droite = t;
+				a->gauche = t[i];
+				t[i] = a;
 			}
 			else
 			{
-				t->gauche = a->gauche->droite;
-				t->droite = a->droite;
-				a->gauche->droite = t;
-				t = a;
-				a = a->gauche;
-				free(t);
+				a->droite = t[i];
+				a->gauche = t[--i];
+				t[i] = a;
 			}
 		}
+		l = l->suivant;
 	}
-	free(parenthese);
-	t = a;
-	a = a->droite;
-	free(t);
 	#if DEBUG
 		puts("arbre:");
-		prefixe(a, 0);
+		prefixe(t[0], 0);
 	#endif
-	return a;
+	return t[0];
 }
 
 // Résolution de a op b
-int	resoudre(enum valeur a, enum valeur b, enum valeur op)
+int	resoudre(e_valeur a, e_valeur b, e_valeur op)
 {
 	if (op == NON)
 		return ! a;
@@ -414,6 +415,7 @@ int	main(int argc, char **argv)
 	if (! est_valide(l))
 		RETURN_INVALIDE(-2);
 	arbre_token a = liste_token_to_arbre_token(l);
+	destroy_liste_token(l);
 	puts((arbre_to_int(a)) ? "VRAI" : "FAUX");
 	destroy_arbre_token(a);
 	return 0;
