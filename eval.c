@@ -74,7 +74,7 @@ struct arbre
 		//else (v == DROITE)
 		return ")";
 	}
-
+	
 	// Parcours prefixe
 	void	prefixe(arbre_token at, int p)
 	{
@@ -108,9 +108,9 @@ void	destroy_liste_token(liste_token l)
 	liste_token s;
 	while (l)
 	{
-		s = l->suivant;
-		free(l);
-		l = s;
+		s = l;
+		l = l->suivant;
+		free(s);
 	}
 }
 
@@ -223,78 +223,55 @@ int	est_valide(liste_token l)
 	return q && ! p;
 }
 
+// Macro pour ajouter un élément à la pile
+#define PUSH(P, E) ({E->suivant = P; P = E;})
+
+// Macro pour enlever un élément de la pile et le rattacher en fin de liste
+#define POP(P, L) ({L->suivant = P; L = L->suivant; P = P->suivant;})
+
 // Transforme une liste de tokens de infixe à postfixe
 liste_token	liste_token_to_postfixe(liste_token l)
 {
-	if (! l)
-		return NULL;
-	liste_token c, exp = NULL, cexp = NULL, op = new_liste_token(PARENTHESE, GAUCHE), p;
+	liste_token c, exp, fin, stack, suivant;
 	
+	exp = new_liste_token(PARENTHESE, GAUCHE);
+	fin = exp;
+	stack = new_liste_token(PARENTHESE, GAUCHE);
 	while (l)
 	{
-		p = l->suivant;
-		if (l->type == CONSTANTE)
+		suivant = l->suivant;
+		if (l->type == CONSTANTE) // ajout à l'expression
 		{
-			// Ajout à l'expression
-			if (exp)
-			{
-				cexp->suivant = l;
-				cexp = cexp->suivant;
-			}
-			else
-			{
-				exp = l;
-				cexp = l;
-				exp->suivant = NULL;
-			}
+			fin->suivant = l;
+			fin = fin->suivant;
 		}
 		else if (l->type == OPERATEUR)
 		{
-			// Gestion de la priorité
-			while (op->type == OPERATEUR && l->valeur >= op->valeur)
-			{
-				cexp->suivant = op;
-				cexp = cexp->suivant;
-				op = op->suivant;
-			}
-			// On ajoute l'opérateur à la pile
-			c = op;
-			op = l;
-			op->suivant = c;
+			while (stack->type == OPERATEUR && l->valeur >= stack->valeur)
+				POP(stack, fin); // on retire les opérateurs moins prioritaires
+			PUSH(stack, l); // on ajoute l'opérateur
 		}
 		else // (l->type == PARENTHESE)
 		{
 			if (l->valeur == GAUCHE)
-			{
-				// Ajout à la pile
-				c = op;
-				op = l;
-				op->suivant = c;
-			}
+				PUSH(stack, l); // on ajoute la parenthèse à la pile
 			else // (l->valeur == DROITE)
 			{
-				while (op->valeur != GAUCHE)
-				{
-					cexp->suivant = op;
-					cexp = cexp->suivant;
-					op = op->suivant;
-				}
-				c = op->suivant;
-				free(op);
+				while (stack->valeur != GAUCHE)
+					POP(stack, fin); // on récupère les opérateurs
+				c = stack->suivant;
+				free(stack);
 				free(l);
-				op = c;
+				stack = c;
 			}
 		}
-		l = p;
+		l = suivant;
 	}
-	while (op->valeur != GAUCHE)
-	{
-		cexp->suivant = op;
-		cexp = cexp->suivant;
-		op = op->suivant;
-	}
-	cexp->suivant = NULL;
-	free(op);
+	free(stack);
+	fin->suivant = NULL;
+	fin = exp;
+	exp = exp->suivant;
+	free(fin);
 	return exp;
 }
 
@@ -306,8 +283,7 @@ int	stack_max_size(liste_token l)
 	{
 		if (l->type == CONSTANTE)
 		{
-			s++;
-			if (s > max)
+			if (++s > max)
 				max = s;
 		}
 		else if (l->valeur != NON)
@@ -320,12 +296,9 @@ int	stack_max_size(liste_token l)
 // Transforme une liste de tokens en arbre
 arbre_token	liste_token_to_arbre_token(liste_token l)
 {
-	l = liste_token_to_postfixe(l); // conversion pour simplifier la construction
 	arbre_token t[stack_max_size(l)], a;
-	int i = -1;
-	
 	t[0] = NULL;
-	while (l)
+	for (int i = -1; l; l = l->suivant)
 	{
 		a = new_arbre_token(l);
 		if (a->type == CONSTANTE) // on ajoute la constante à la pile d'arbres
@@ -345,7 +318,6 @@ arbre_token	liste_token_to_arbre_token(liste_token l)
 				t[i] = a;
 			}
 		}
-		l = l->suivant;
 	}
 	#if DEBUG // Affichage de l'arbre
 		prefixe(t[0], 0);
@@ -384,7 +356,11 @@ int	main(int argc, char **argv)
 		RETURN_INVALIDE();
 	liste_token l = string_to_token(argv[1]);
 	if (! est_valide(l))
+	{
+		destroy_liste_token(l);
 		RETURN_INVALIDE();
+	}
+	l = liste_token_to_postfixe(l); // conversion pour simplifier la construction
 	arbre_token a = liste_token_to_arbre_token(l);
 	destroy_liste_token(l);
 	puts((arbre_to_int(a)) ? "VRAI" : "FAUX");
