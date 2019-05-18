@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-// Affiche une erreur en cas d'expression incorrecte et retourne la valeur
-#define RETURN_INVALIDE(VALUE) ({ puts("expression incorrecte"); return VALUE; })
+// Affiche une erreur en cas d'expression incorrecte et quitte le programme (utilisé dans le main)
+#define RETURN_INVALIDE() ({ puts("expression incorrecte"); return 0; })
 
 // Si DEBUG est différent de 0, affiche plus d'informations à l'écran
 #define DEBUG 1
@@ -51,65 +51,44 @@ struct arbre
 	arbre_token	droite;
 };
 
-/// PARTIE DEBUG
-
-// REMINDER: fonctions à supprimer AVANT le rendu
-
-// Conversion d'un token en chaîne de charactères
-const char*	toString(e_valeur v)
-{
-	if (v == FAUX)
-		return "0";
-	else if (v == VRAI)
-		return "1";
-	else if (v == NON)
-		return "NON";
-	else if (v == OU)
-		return "+";
-	else if (v == ET)
-		return ".";
-	else if (v == IMPLICATION)
-		return "=>";
-	else if (v == EQUIVALENCE)
-		return "<=>";
-	else if (v == GAUCHE)
-		return "(";
-	//else (v == DROITE)
-	return ")";
-}
-
-// Affiche la liste
-void print_liste_token(liste_token l, char *name)
-{
-	printf("%s: ", name);
-	if (! l)
+#if DEBUG
+	// Conversion d'un token en chaîne de charactères
+	const char*	token_to_string(e_valeur v)
 	{
-		puts("null");
-		return;
+		if (v == FAUX)
+			return "0";
+		else if (v == VRAI)
+			return "1";
+		else if (v == NON)
+			return "NON";
+		else if (v == OU)
+			return "+";
+		else if (v == ET)
+			return ".";
+		else if (v == IMPLICATION)
+			return "=>";
+		else if (v == EQUIVALENCE)
+			return "<=>";
+		else if (v == GAUCHE)
+			return "(";
+		//else (v == DROITE)
+		return ")";
 	}
-	while(l)
+
+	// Parcours prefixe
+	void	prefixe(arbre_token at, int p)
 	{
-		printf("%s", toString(l->valeur));
-		l = l->suivant;
+		if (! at)
+			return;
+		for (int i = 1; i < p; i++)
+			printf("  ");
+		if (p)
+			printf("↳ ");
+		printf("%s\n", token_to_string(at->valeur));
+		prefixe(at->gauche, ++p);
+		prefixe(at->droite, p);
 	}
-	putchar('\n');
-}
-
-// Parcours prefixe
-void	prefixe(arbre_token at, int p)
-{
-	if (! at)
-		return;
-	for (int i = 1; i < p; i++)
-		printf("  ");
-	if (p)
-		printf("↳ ");
-	printf("%s\n", toString(at->valeur));
-	prefixe(at->gauche, ++p);
-	prefixe(at->droite, p);
-}
-
-/// FIN PARTIE DEBUG
+#endif
 
 // Alloue la mémoire à un token dans la liste
 liste_token	new_liste_token(e_type t, e_valeur v)
@@ -208,9 +187,6 @@ liste_token	string_to_token(const char *s)
 		}
 		s++;
 	}
-	#if DEBUG
-		print_liste_token(l, "liste de tokens");
-	#endif
 	return l;
 }
 
@@ -248,7 +224,7 @@ int	est_valide(liste_token l)
 }
 
 // Transforme une liste de tokens de infixe à postfixe
-liste_token	liste_token_to_postfix(liste_token l)
+liste_token	liste_token_to_postfixe(liste_token l)
 {
 	if (! l)
 		return NULL;
@@ -319,9 +295,6 @@ liste_token	liste_token_to_postfix(liste_token l)
 	}
 	cexp->suivant = NULL;
 	free(op);
-	#if DEBUG
-		print_liste_token(exp, "expression postfixe");
-	#endif
 	return exp;
 }
 
@@ -347,7 +320,7 @@ int	stack_max_size(liste_token l)
 // Transforme une liste de tokens en arbre
 arbre_token	liste_token_to_arbre_token(liste_token l)
 {
-	l = liste_token_to_postfix(l); // conversion pour simplifier la construction
+	l = liste_token_to_postfixe(l); // conversion pour simplifier la construction
 	arbre_token t[stack_max_size(l)], a;
 	int i = -1;
 	
@@ -374,8 +347,7 @@ arbre_token	liste_token_to_arbre_token(liste_token l)
 		}
 		l = l->suivant;
 	}
-	#if DEBUG
-		puts("arbre:");
+	#if DEBUG // Affichage de l'arbre
 		prefixe(t[0], 0);
 	#endif
 	return t[0];
@@ -409,11 +381,10 @@ int	arbre_to_int(arbre_token at)
 int	main(int argc, char **argv)
 {
 	if (argc != 2)
-		RETURN_INVALIDE(-1);
+		RETURN_INVALIDE();
 	liste_token l = string_to_token(argv[1]);
-	
 	if (! est_valide(l))
-		RETURN_INVALIDE(-2);
+		RETURN_INVALIDE();
 	arbre_token a = liste_token_to_arbre_token(l);
 	destroy_liste_token(l);
 	puts((arbre_to_int(a)) ? "VRAI" : "FAUX");

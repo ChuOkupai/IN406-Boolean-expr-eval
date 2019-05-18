@@ -1,9 +1,10 @@
 NOMS=DANKOU_Mathis-SOURSOU_Adrien
 
 run: clean eval
-	./eval "1=>NON0"
-	./eval "(1.0)+1"
-	./eval "NON(0)+0"
+	./eval
+	./eval "0+"
+	./eval "(1.(0+1)"
+	./eval "1.NON0<=>0+NON(NON1.1)"
 	./eval "(1=>(NON(1+0).1))"
 
 clean:
