@@ -17,5 +17,4 @@ zip: Makefile cr.tex cr.pdf eval.c
 	rm -rf $(NOMS) $(NOMS).zip
 	mkdir $(NOMS)
 	cp $^ $(NOMS)
-	zip -9 -r $(NOMS).zip $(NOMS)
-	rm -r $(NOMS)
+	zip -9 -rm $(NOMS).zip $(NOMS)

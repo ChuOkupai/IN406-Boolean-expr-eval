@@ -29,7 +29,7 @@ typedef enum
 	IMPLICATION,
 	EQUIVALENCE,
 	
-	// Paranthèses (priorités)
+	// Parenthèses
 	GAUCHE,
 	DROITE
 }	e_valeur;
@@ -278,6 +278,7 @@ liste_token	liste_token_to_postfixe(liste_token l)
 int	stack_max_size(liste_token l)
 {
 	int s = 0, max = 0;
+	
 	while (l)
 	{
 		if (l->type == CONSTANTE && ++s > max)
@@ -351,7 +352,7 @@ int	main(int argc, char **argv)
 	l = liste_token_to_postfixe(l); // conversion pour simplifier la construction de l'arbre
 	arbre_token a = liste_token_to_arbre_token(l); // transformation en arbre
 	destroy_liste_token(l);
-	puts((arbre_to_int(a)) ? "VRAI" : "FAUX");
+	puts((arbre_to_int(a)) ? "VRAI" : "FAUX"); // affichage du résultat
 	destroy_arbre_token(a);
 	return 0;
 }
