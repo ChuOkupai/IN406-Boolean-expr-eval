@@ -145,16 +145,16 @@ liste_token	string_to_token(const char *s)
 	e_valeur v;
 	while (*s)
 	{
-		t = OPERATEUR;
 		if (*s == ' ')		{ s++; continue; }
 		else if (*s == '0')	{ t = CONSTANTE; v = FAUX; }
 		else if (*s == '1')	{ t = CONSTANTE; v = VRAI; }
-		else if (*s == '+')	{ v = OU; }
-		else if (*s == '.')	{ v = ET; }
+		else if (*s == '+')	{ t = OPERATEUR; v = OU; }
+		else if (*s == '.')	{ t = OPERATEUR; v = ET; }
 		else if (*s == '(')	{ t = PARENTHESE; v = GAUCHE; }
 		else if (*s == ')')	{ t = PARENTHESE; v = DROITE; }
 		else
 		{
+			t = OPERATEUR;
 			if (s[0] == '=' && s[1] && s[1] == '>')
 				v = IMPLICATION;
 			else if (s[0] == '<' && s[1] && s[1] == '=' && s[2] && s[2] == '>')
@@ -219,7 +219,7 @@ int	est_valide(liste_token l)
 		}
 		l = l->suivant;
 	}
-	// vrai si état final et pas de parenthèses restantes dans la pile
+	// vrai si état final et pile vide
 	return q && ! p;
 }
 
@@ -232,11 +232,11 @@ int	est_valide(liste_token l)
 // Transforme une liste de tokens de infixe à postfixe
 liste_token	liste_token_to_postfixe(liste_token l)
 {
-	liste_token c, exp, fin, stack, suivant;
+	liste_token exp, fin, stack, suivant;
 	
-	exp = new_liste_token(PARENTHESE, GAUCHE);
-	fin = exp;
+	exp = new_liste_token(PARENTHESE, GAUCHE); // pour éviter les pointeurs vides
 	stack = new_liste_token(PARENTHESE, GAUCHE);
+	fin = exp;
 	while (l)
 	{
 		suivant = l->suivant;
@@ -249,29 +249,28 @@ liste_token	liste_token_to_postfixe(liste_token l)
 		{
 			while (stack->type == OPERATEUR && l->valeur >= stack->valeur)
 				POP(stack, fin); // on retire les opérateurs moins prioritaires
-			PUSH(stack, l); // on ajoute l'opérateur
+			PUSH(stack, l); // on ajoute l'opérateur à la pile
 		}
-		else // (l->type == PARENTHESE)
+		else if (l->valeur == DROITE)
 		{
-			if (l->valeur == GAUCHE)
-				PUSH(stack, l); // on ajoute la parenthèse à la pile
-			else // (l->valeur == DROITE)
-			{
-				while (stack->valeur != GAUCHE)
-					POP(stack, fin); // on récupère les opérateurs
-				c = stack->suivant;
-				free(stack);
-				free(l);
-				stack = c;
-			}
+			while (stack->valeur != GAUCHE)
+				POP(stack, fin); // on récupère les opérateurs
+			free(l);
+			l = stack->suivant;
+			free(stack);
+			stack = l;
 		}
+		else // (l->valeur == GAUCHE)
+			PUSH(stack, l); // on ajoute la parenthèse à la pile
 		l = suivant;
 	}
+	while (stack->valeur != GAUCHE)
+		POP(stack, fin); // on vide la pile
 	free(stack);
 	fin->suivant = NULL;
-	fin = exp;
-	exp = exp->suivant;
-	free(fin);
+	l = exp;
+	exp = l->suivant;
+	free(l);
 	return exp;
 }
 
@@ -281,11 +280,8 @@ int	stack_max_size(liste_token l)
 	int s = 0, max = 0;
 	while (l)
 	{
-		if (l->type == CONSTANTE)
-		{
-			if (++s > max)
-				max = s;
-		}
+		if (l->type == CONSTANTE && ++s > max)
+			max = s;
 		else if (l->valeur != NON)
 			s--;
 		l = l->suivant;
@@ -297,27 +293,19 @@ int	stack_max_size(liste_token l)
 arbre_token	liste_token_to_arbre_token(liste_token l)
 {
 	arbre_token t[stack_max_size(l)], a;
-	t[0] = NULL;
 	for (int i = -1; l; l = l->suivant)
 	{
 		a = new_arbre_token(l);
 		if (a->type == CONSTANTE) // on ajoute la constante à la pile d'arbres
-			t[++i] = a;
-		else // (t->type == OPERATEUR)
+			i++;
+		else if (a->valeur == NON)
+			a->gauche = t[i];
+		else // on fusionne 2 arbres avec l'opérateur, puis on le remet dans la pile
 		{
-			// on fusionne 2 arbres avec l'opérateur, puis on le remet dans la pile
-			if (a->valeur == NON)
-			{
-				a->gauche = t[i];
-				t[i] = a;
-			}
-			else
-			{
-				a->droite = t[i];
-				a->gauche = t[--i];
-				t[i] = a;
-			}
+			a->droite = t[i];
+			a->gauche = t[--i];
 		}
+		t[i] = a;
 	}
 	#if DEBUG // Affichage de l'arbre
 		prefixe(t[0], 0);
@@ -355,13 +343,13 @@ int	main(int argc, char **argv)
 	if (argc != 2)
 		RETURN_INVALIDE();
 	liste_token l = string_to_token(argv[1]);
-	if (! est_valide(l))
+	if (! est_valide(l)) // on s'assure que l'expression est valide
 	{
 		destroy_liste_token(l);
 		RETURN_INVALIDE();
 	}
-	l = liste_token_to_postfixe(l); // conversion pour simplifier la construction
-	arbre_token a = liste_token_to_arbre_token(l);
+	l = liste_token_to_postfixe(l); // conversion pour simplifier la construction de l'arbre
+	arbre_token a = liste_token_to_arbre_token(l); // transformation en arbre
 	destroy_liste_token(l);
 	puts((arbre_to_int(a)) ? "VRAI" : "FAUX");
 	destroy_arbre_token(a);
