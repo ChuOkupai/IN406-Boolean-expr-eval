@@ -59,13 +59,12 @@ $L = \{\; w \in e,\; n\; \geq 0,\; |w|_{(} = |w|_{)} = n\;\}$
     (q_0)   edge [loop below] node[below=0.0] {$NON,\in,\rightarrow$}
                               node[below=0.5] {$(,\in,\uparrow1$} ()
             edge [bend left=50] node[above=1] {$0,\in,\rightarrow$}
-                                node[above=0.5] {$1,\in,\in$} (q_1)
+                                node[above=0.5] {$1,\in,\rightarrow$} (q_1)
     (q_1)   edge [loop above] node {$),\in,\downarrow$} ()
             edge [bend left=50] node[below=0.5] {$+,\in,\rightarrow$}
                                 node[below=1] {$.,\in,\rightarrow$}
                                 node[below=1.5] {$\Rightarrow,\in,\rightarrow$}
                                 node[below=2] {$\Leftrightarrow,\in,\rightarrow$} (q_0);
-
 \end{tikzpicture}
 \caption{Automate à pile reconnaissant le langage par état final et pile vide.}
 \end{figure}
