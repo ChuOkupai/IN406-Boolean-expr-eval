@@ -5,7 +5,7 @@
 #define RETURN_INVALIDE() ({ puts("expression incorrecte"); return 0; })
 
 // Si DEBUG est différent de 0, affiche plus d'informations à l'écran
-#define DEBUG 1
+#define DEBUG 0
 
 typedef enum
 {
