@@ -281,8 +281,11 @@ int	stack_max_size(liste_token l)
 	
 	while (l)
 	{
-		if (l->type == CONSTANTE && ++s > max)
-			max = s;
+		if (l->type == CONSTANTE)
+		{
+			if (++s > max)
+				max = s;
+		}
 		else if (l->valeur != NON)
 			s--;
 		l = l->suivant;
