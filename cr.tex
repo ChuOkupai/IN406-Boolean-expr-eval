@@ -47,10 +47,8 @@ struct token
 \end{minted}
 
 \section*{Question 3 :}
-Soient $L$ le langage ainsi que $c$ et $e$ deux expressions régulières : \\
-$c$ = $[\;NON\;|\;(^*\;]^*\;[\;0\;|\;1\;]\;)^*$ \\
-$e$ = $c\;[\;[\;+\;|\;.\;|\;\Rightarrow\;|\;\Leftrightarrow\;]\;c\;]^*$ \\
-$L = \{\; w \in e,\; n\; \geq 0,\; |w|_{(} = |w|_{)} = n\;\}$
+Soit L le langage : \\
+$L = \{\; w \in G,\; |w|_{(} = |w|_{)}\;\}$
 \begin{figure}[H]
 \begin{tikzpicture}
    \node[state,initial] (q_0)  {$q_0$}; 
@@ -84,7 +82,7 @@ Définition formelle : \\
     \hspace*{7ex} (q_1,\;\in,\;),\;q_1,\;\downarrow), \\
     \}
 \end{math}
-
+\newpage
 \section*{Question 4 :}
 \begin{minted}{C}
 typedef struct arbre* arbre_token;
@@ -124,7 +122,7 @@ int arbre_to_int(arbre_token at)
 \end{minted}
 \newpage
 \section*{Question 7 :}
-La priorité des opérateurs est décrite par le tableau de priorité ci-dessous :
+La priorité des opérateurs est définie par le tableau ci-dessous :
 \vspace{5px}
 
 \begin{tabular}[h]{|r|l|}
@@ -142,6 +140,7 @@ La priorité des opérateurs est décrite par le tableau de priorité ci-dessous
     $\Leftrightarrow$ & 5\\
 \hline
 \end{tabular}
+
 \section*{Commentaires}
 Le programme par défaut n'affiche que le résultat de l'expression. Cependant, une variable DEBUG peut être modifiée dans le fichier \textit{eval.c} afin de visualiser l'arbre construit.
 
