@@ -247,7 +247,7 @@ liste_token	liste_token_to_postfixe(liste_token l)
 		}
 		else if (l->type == OPERATEUR)
 		{
-			while (stack->type == OPERATEUR && l->valeur >= stack->valeur)
+			while (stack->type == OPERATEUR && l->valeur > stack->valeur)
 				POP(stack, fin); // on retire les opérateurs moins prioritaires
 			PUSH(stack, l); // on ajoute l'opérateur à la pile
 		}
