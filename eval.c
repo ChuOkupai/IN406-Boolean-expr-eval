@@ -37,7 +37,7 @@ typedef enum
 typedef struct token* liste_token;
 struct token
 {
-	e_type	type;
+	e_type		type;
 	e_valeur	valeur;
 	liste_token	suivant;
 };
@@ -45,7 +45,7 @@ struct token
 typedef struct arbre* arbre_token;
 struct arbre
 {
-	e_type	type;
+	e_type		type;
 	e_valeur	valeur;
 	arbre_token	gauche;
 	arbre_token	droite;
@@ -200,7 +200,11 @@ int	est_valide(liste_token l)
 		if (q) // état final
 		{
 			if (l->valeur == DROITE)
+			{
 				p--;
+				if (p < 0)
+					break;
+			}
 			else
 			{
 				q = 0;
